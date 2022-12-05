@@ -6,6 +6,7 @@ const inputFile = 'input.txt';
 const input: string = readFileSync(inputFile, 'utf-8').replace(/\r/g, '');
 
 /**
+ * Operations:
  * AND OR NOT LSHIFT RSHIFT ASSIGN
  */
 
@@ -27,8 +28,7 @@ function part01() {
 
         for (let i=0; i<instructions.length; i++) {
             let currInstruction: string = instructions[i];
-            // -> wireName
-            // 3 + wireName.length
+            // -> (wireName)
             if (currInstruction.slice(-(3+wireName.length)) === ('-> '+wireName)) {
                 instruction = currInstruction;
                 break;
@@ -65,7 +65,6 @@ function part01() {
         
         // parse the instruction
         const currInput: string[] = findInstructionOfWire(wire, instructions).split(' ');
-        console.log(currInput);
         // calculate the input
         let value: number = 0;
         if (currInput.length == 3) {
@@ -79,7 +78,7 @@ function part01() {
             let toCalculateWire: number = findSignalOfWire(currInput[1], instructions);
             value = calculateInstruction('NOT', [toCalculateWire]);
         } else if (currInput.includes('AND')) {
-            //  isNaN(+maybeNumber) // returns true if NaN, otherwise false
+            // isNaN(+maybeNumber) returns true if NaN, otherwise false
             // if the value is number, use it. otherwise check for the wires value
             let toCalculate1;
             let toCalculate2;
@@ -185,7 +184,6 @@ function part02() {
         
         // parse the instruction
         const currInput: string[] = findInstructionOfWire(wire, instructions).split(' ');
-        console.log(currInput);
         // calculate the input
         let value: number = 0;
         if (currInput.length == 3) {

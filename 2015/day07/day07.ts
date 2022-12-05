@@ -1,17 +1,13 @@
 import { readFileSync } from 'fs';
+import { exit } from 'process';
 
 const inputFile = 'input.txt';
 
-/**
- * 
-    123 -> x means that the signal 123 is provided to wire x.
-    x AND y -> z means that the bitwise AND of wire x and wire y is provided to wire z.
-    p LSHIFT 2 -> q means that the value from wire p is left-shifted by 2 and then provided to wire q.
-    NOT e -> f means that the bitwise complement of the value from wire e is provided to wire f.
-    OR (bitwise OR) and RSHIFT (right-shift)
- */
+const input: string = readFileSync(inputFile, 'utf-8').replace(/\r/g, '');
 
-const circuitInstructions: string = readFileSync(inputFile, 'utf-8').replace(/\r/g, '');
+/**
+ * AND OR NOT LSHIFT RSHIFT ASSIGN
+ */
 
 function part01() {
     function limitTo16bit(signal: number):number {
@@ -26,41 +22,111 @@ function part01() {
         return newSignal;
     }
 
-    const instructions: string[][] = circuitInstructions.split('\n')
-    .map( (inst: string) => {
-        return inst.split(' ');
-    } );
+    function findInstructionOfWire(wireName: string, instructions: string[]): string {
+        let instruction: string = '';
 
-    let wires = new Map<string, number>();
-    
-    instructions.forEach( (instruction: string[]) => {
-        if (instruction.length == 3) {
-            // set value
-            let signal: number = Number(instruction[0]);
-            wires.set(instruction[2], limitTo16bit(signal));
-        } else if (instruction[0] === 'NOT') {
-            let signal: number = wires.get(instruction[1]) as number;
-            wires.set(instruction[3], limitTo16bit(~ signal));
-        } else if (instruction[1] === 'AND') {
-            let signal1: number = wires.get(instruction[0]) as number;
-            let signal2: number = wires.get(instruction[2]) as number;
-            wires.set(instruction[4], limitTo16bit(signal1 & signal2));
-        } else if (instruction[1] === 'OR') {
-            let signal1: number = wires.get(instruction[0]) as number;
-            let signal2: number = wires.get(instruction[2]) as number;
-            wires.set(instruction[4], limitTo16bit(signal1 | signal2));
-        } else if (instruction[1] === 'LSHIFT') {
-            let signal1: number = wires.get(instruction[0]) as number;
-            let signal2: number = Number(instruction[2]);
-            wires.set(instruction[4], limitTo16bit(signal1 << signal2));
-        } else if (instruction[1] === 'RSHIFT') {
-            let signal1: number = wires.get(instruction[0]) as number;
-            let signal2: number = Number(instruction[2]);
-            wires.set(instruction[4], limitTo16bit(signal1 >> signal2));
+        for (let i=0; i<instructions.length; i++) {
+            let currInstruction: string = instructions[i];
+            // -> wireName
+            // 3 + wireName.length
+            if (currInstruction.slice(-(3+wireName.length)) === ('-> '+wireName)) {
+                instruction = currInstruction;
+                break;
+            }
         }
-    } );
+        if (instruction == '') {
+            console.error('COULD NOT FIND INSTRUCTION ' + wireName);
+            exit();
+        }
 
-    console.log(wires.get('a'));
+        return instruction;
+    }
+
+    function calculateInstruction (instruction: string, values: number []): number {
+        switch(instruction) {
+            case 'AND':
+                return limitTo16bit(values[0] & values[1]);
+            case 'OR':
+                return limitTo16bit(values[0] | values[1]);
+            case 'NOT':
+                return limitTo16bit(~values[0]);
+            case 'LSHIFT':
+                return limitTo16bit(values[0] << values[1]);
+            case 'RSHIFT':
+                return limitTo16bit(values[0] >> values[1]);
+        }
+
+        return 0;
+    }
+
+    function findSignalOfWire(wire: string, instructions: string[]): number {
+        // check if in known inputs, if yes, return the value
+        if (knownInputs.has(wire)) return knownInputs.get(wire) as number;
+        
+        // parse the instruction
+        const currInput: string[] = findInstructionOfWire(wire, instructions).split(' ');
+        console.log(currInput);
+        // calculate the input
+        let value: number = 0;
+        if (currInput.length == 3) {
+            let toCalculateWire = Number(currInput[0]);
+            if (isNaN(toCalculateWire)) {
+                value = findSignalOfWire(currInput[0], instructions);
+            } else {
+                value = toCalculateWire;
+            }
+        } else if (currInput.includes('NOT')) {
+            let toCalculateWire: number = findSignalOfWire(currInput[1], instructions);
+            value = calculateInstruction('NOT', [toCalculateWire]);
+        } else if (currInput.includes('AND')) {
+            //  isNaN(+maybeNumber) // returns true if NaN, otherwise false
+            // if the value is number, use it. otherwise check for the wires value
+            let toCalculate1;
+            let toCalculate2;
+            if (isNaN(Number(currInput[0]))) {
+                toCalculate1 = findSignalOfWire(currInput[0], instructions);
+            } else {
+                toCalculate1 = Number(currInput[0]);
+            }
+            if (isNaN(Number(currInput[2]))) {
+                toCalculate2 = findSignalOfWire(currInput[2], instructions);
+            } else {
+                toCalculate2 = Number(currInput[2]);
+            }
+            value = calculateInstruction('AND', [toCalculate1, toCalculate2]);
+        } else if (currInput.includes('OR')) {
+            let toCalculate1;
+            let toCalculate2;
+            if (isNaN(Number(currInput[0]))) {
+                toCalculate1 = findSignalOfWire(currInput[0], instructions);
+            } else {
+                toCalculate1 = Number(currInput[0]);
+            }
+            if (isNaN(Number(currInput[2]))) {
+                toCalculate2 = findSignalOfWire(currInput[2], instructions);
+            } else {
+                toCalculate2 = Number(currInput[2]);
+            }
+            value = calculateInstruction('OR', [toCalculate1, toCalculate2]);
+        } else if (currInput.includes('LSHIFT')) {
+            let toCalculateWire1: number = findSignalOfWire(currInput[0], instructions);
+            let toCalculateWire2: number = Number(currInput[2]);
+            value = calculateInstruction('LSHIFT', [toCalculateWire1, toCalculateWire2]);
+        } else if (currInput.includes('RSHIFT')) {
+            let toCalculateWire1: number = findSignalOfWire(currInput[0], instructions);
+            let toCalculateWire2: number = Number(currInput[2]);
+            value = calculateInstruction('RSHIFT', [toCalculateWire1, toCalculateWire2]);
+        }
+
+        //add to known inputs
+        knownInputs.set(wire, value);
+        return value;
+    }
+
+    const instructions: string[] = input.split('\n');
+    const knownInputs: Map<string, number> = new Map<string, number>();
+
+    console.log(findSignalOfWire('a', instructions));
 }
 
 function part02() {
